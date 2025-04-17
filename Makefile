@@ -402,10 +402,17 @@ KBUILD_CFLAGS_MODULE  := -DMODULE
 KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
 GCC_PLUGINS_CFLAGS :=
 CLANG_FLAGS :=
-
+KBUILD_CFLAGS += -Wno-error=unused-command-line-argument
+KBUILD_CFLAGS += -Wno-error=unused-but-set-variable -Wno-error=unused-variable -Wno-error=strict-prototypes
+KBUILD_CPPFLAGS += -Qunused-arguments
+KBUILD_CFLAGS += -Wno-unused-command-line-argument
+KBUILD_CFLAGS += -no-integrated-as -fno-builtin-stpcpy
+#KBUILD_CFLAGS += -Wno-warning=unused-but-set-variable -Wno-warning=unused-variable
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
 KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
 KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
+
+
 
 export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
 export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
@@ -514,11 +521,11 @@ ifeq ($(shell $(srctree)/scripts/clang-android.sh $(CC) $(CLANG_FLAGS)), y)
 $(error "Clang with Android --target detected. Did you specify CLANG_TRIPLE?")
 endif
 GCC_TOOLCHAIN_DIR := $(dir $(shell which $(CROSS_COMPILE)elfedit))
-CLANG_FLAGS	+= --prefix=$(GCC_TOOLCHAIN_DIR)
+CLANG_FLAGS	+= --prefix=$(GCC_TOOLCHAIN_DIR)$(notdir $(CROSS_COMPILE))
 GCC_TOOLCHAIN	:= $(realpath $(GCC_TOOLCHAIN_DIR)/..)
 endif
 ifneq ($(GCC_TOOLCHAIN),)
-CLANG_FLAGS	+= --gcc-toolchain=$(GCC_TOOLCHAIN)
+#CLANG_FLAGS	+= --gcc-toolchain=$(GCC_TOOLCHAIN)
 endif
 CLANG_FLAGS	+= -no-integrated-as
 CLANG_FLAGS	+= -Werror=unknown-warning-option
@@ -791,7 +798,7 @@ CLANG_TARGET	:= -target $(notdir $(CLANG_TRIPLE:%-=%))
 GCC_TOOLCHAIN	:= $(realpath $(dir $(shell which $(LD)))/..)
 endif
 ifneq ($(GCC_TOOLCHAIN),)
-CLANG_GCC_TC	:= -gcc-toolchain $(GCC_TOOLCHAIN)
+#CLANG_GCC_TC	:= -gcc-toolchain $(GCC_TOOLCHAIN)
 endif
 KBUILD_CFLAGS += $(CLANG_TARGET) $(CLANG_GCC_TC)
 KBUILD_AFLAGS += $(CLANG_TARGET) $(CLANG_GCC_TC)
@@ -1206,8 +1213,12 @@ endif
 # Make sure compiler supports requested stack protector flag.
 ifdef stackp-name
   ifeq ($(call cc-option, $(stackp-flag)),)
-	@echo Cannot use CONFIG_CC_STACKPROTECTOR_$(stackp-name): \
-		  $(stackp-flag) not supported by compiler >&2 && exit 1
+    ifeq ($(shell $(CC) --version | head -n 1 | grep -i clang),)
+      @echo Cannot use CONFIG_CC_STACKPROTECTOR_$(stackp-name): \
+            $(stackp-flag) not supported by compiler >&2 && exit 1
+    else
+      @echo Clang detected: ignoring -fstack-protector-strong check
+    endif
   endif
 endif
 # Make sure compiler does not have buggy stack-protector support.
@@ -1846,6 +1857,18 @@ ifneq ($(cmd_files),)
   $(cmd_files): ;	# Do not try to update included dependency files
   include $(cmd_files)
 endif
+
+CLANG_FLAGS := -no-integrated-as
+KBUILD_CFLAGS += $(CLANG_FLAGS)
+KBUILD_AFLAGS += $(CLANG_FLAGS)
+KBUILD_CFLAGS += -Wno-unused-command-line-argument
+KBUILD_CPPFLAGS += -Qunused-arguments
+# Убираем ненужный или ломающий флаг
+KBUILD_CFLAGS := $(filter-out -gcc-toolchain%,$(KBUILD_CFLAGS))
+KBUILD_CFLAGS := $(filter-out --prefix%,$(KBUILD_CFLAGS))
+KBUILD_CFLAGS := $(filter-out --target%,$(KBUILD_CFLAGS))
+KBUILD_AFLAGS := $(filter-out --target%,$(KBUILD_AFLAGS))
+export CLANG_TRIPLE := aarch64-linux-gnu-
 
 endif	# skip-makefile
 

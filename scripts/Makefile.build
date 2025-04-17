@@ -21,11 +21,11 @@ subdir-m :=
 EXTRA_AFLAGS   :=
 EXTRA_CFLAGS   :=
 EXTRA_CPPFLAGS :=
-EXTRA_LDFLAGS  :=
+EXTRA_LDFLAGS  := -m aarch64linux
 asflags-y  :=
 ccflags-y  :=
 cppflags-y :=
-ldflags-y  :=
+ldflags-y  := -m aarch64linux
 
 subdir-asflags-y :=
 subdir-ccflags-y :=
